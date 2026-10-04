@@ -1,0 +1,10 @@
+{
+  "name": "湖南省地质博物馆开箱清查",
+  "short_name": "地博清查",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f7fa",
+  "theme_color": "#103b5d",
+  "lang": "zh-CN",
+  "icons": []
+}

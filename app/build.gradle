@@ -1,0 +1,22 @@
+plugins { id 'com.android.application' }
+def key = new Properties()
+def keyFile = rootProject.file('keystore.properties')
+if (keyFile.exists()) { keyFile.withInputStream { key.load(it) } }
+
+android { namespace 'cn.hunanmuseum.inventory'; compileSdk 35
+    defaultConfig { applicationId 'cn.hunanmuseum.inventory'; minSdk 26; targetSdk 35; versionCode Integer.parseInt(project.findProperty('appVersionCode') ?: '10001'); versionName project.findProperty('appVersionName') ?: '1.0.1' }
+    signingConfigs { release {
+        if (keyFile.exists()) {
+            storeFile rootProject.file(key.getProperty('storeFile'))
+            storePassword key.getProperty('storePassword')
+            keyAlias key.getProperty('keyAlias')
+            keyPassword key.getProperty('keyPassword')
+        }
+    } }
+    buildTypes { release { signingConfig signingConfigs.release; minifyEnabled false; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro' } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.core:core:1.12.0'
+}

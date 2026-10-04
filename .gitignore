@@ -1,0 +1,14 @@
+.gradle/
+**/build/
+android-sdk/
+tools/
+signing/
+keystore.properties
+local.properties
+*-log.txt
+
+dist/
+release.env
+*.apk
+*.jks
+*.keystore
