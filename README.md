@@ -33,7 +33,7 @@ https://github.com/jy1164039155-a11y/dibo-inventory/releases/latest/download/ver
 依赖 JDK 17、Gradle 8.7、Android SDK 35。
 准备自己的 keystore.properties 和签名密钥（均在 .gitignore 中），执行：
 ```text
-gradle assembleRelease lintRelease -PappVersionName=1.0.1 -PappVersionCode=10001
+gradle assembleRelease lintRelease -PappVersionName=1.0.2 -PappVersionCode=10002
 ```
 
 网页源文件位于 app/src/main/assets/www，原生相机、文件选择和版本检查逻辑位于 MainActivity.java。
@@ -44,7 +44,7 @@ gradle assembleRelease lintRelease -PappVersionName=1.0.1 -PappVersionCode=10001
 - ANDROID_KEYSTORE_BASE64：用于本应用的签名密钥文件的 Base64 编码。
 - ANDROID_KEY_PASSWORD：对应签名密码，alias 固定为 dibo-release。
 
-提交代码后推送 v1.0.2 等标签，会自动构建、签名并发布 APK、version.json 和 SHA256SUMS.txt。
+提交代码后推送 v1.0.3 等新标签，会自动构建、签名并发布 APK、version.json 和 SHA256SUMS.txt。
 标签格式必须为 v主.次.修订，次和修订小于 100。versionCode = 主×10000 + 次×100 + 修订。
 后续版本必须使用相同签名密钥；发布新密钥签名的包无法直接覆盖已安装版本。
 公开仓库仅包含应用源码，现场记录和私人签名材料不纳入版本控制。
@@ -57,3 +57,7 @@ gradle assembleRelease lintRelease -PappVersionName=1.0.1 -PappVersionCode=10001
 - 照片文件夹保存的是 App 处理后的照片。
 - 本机 Android 编译、静态检查、签名检查通过。浏览器已验证保存、重开续录、照片入库、扫描 JSON 回填、ZIP 内容和手机宽度布局。
 - 真机拍照、导出、覆盖安装及实际网络更新仍需试点验证。
+
+## 界面文案
+
+参考 [GitHub Primer Content](https://primer-docs-preview.github.com/product/getting-started/foundations/content/) 的清晰、简洁、统一用词原则，删除重复副标题和卡片说明，按钮直接描述动作。技术说明收进设置中的“使用帮助”，保留单位、导出内容、操作结果和错误提示。设计系统源码见 [primer/design](https://github.com/primer/design)。

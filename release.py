@@ -16,6 +16,8 @@ if minor >= 100 or patch >= 100 or major > 200000:
 code = major * 10000 + minor * 100 + patch
 if mode == 'prepare':
     Path('release.env').write_text(f'VERSION_NAME={tag[1:]}\nVERSION_CODE={code}\n', encoding='utf-8')
+    page = Path('app/src/main/assets/www/index.html')
+    page.write_text(re.sub(r'(<span class="muted small">)v\d+\.\d+\.\d+(</span>)', lambda m: m[1] + tag + m[2], page.read_text(encoding='utf-8')), encoding='utf-8')
 elif mode == 'package':
     out = Path('dist')
     out.mkdir(exist_ok=True)

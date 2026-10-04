@@ -47,8 +47,7 @@ function toast(message) {
 function showScreen(name) {
   $$('.screen').forEach((node) => node.classList.toggle('active', node.dataset.screen === name));
   $$('.bottom-nav button').forEach((node) => node.classList.toggle('active', node.dataset.nav === name));
-  const labels = {home:'选择场景开始', box:`${SCENE_NAMES[state.scene]} · 箱级记录`, item:'逐件登记 · 手动或扫描', scanner:'设备适配器 · 扫描回填', export:'本地导出 · 待交接', settings:'设备与字段'};
-  $('contextText').textContent = labels[name] || labels.home;
+  document.querySelector('.content').scrollTop = 0;
   if (name === 'home') refreshCounts();
   if (name === 'item') prepareItemId();
   if (name === 'export') refreshExportCounts();
@@ -74,7 +73,7 @@ async function prepareNewBox() {
   $('boxForm').reset();
   $('boxId').value = id;
   $('boxSceneChip').textContent = SCENE_NAMES[state.scene];
-  $('boxPhotoStatus').textContent = '照片会绑定箱号并自动压缩到 5MB 以内';
+  $('boxPhotoStatus').textContent = '';
 }
 async function prepareItemId() {
   if (!state.currentBox) return;
@@ -110,8 +109,8 @@ async function handlePhoto(input, statusNode, kind) {
     const result = await compressPhoto(file);
     const target = kind === 'box' ? 'pendingBoxPhoto' : 'pendingItemPhoto';
     state[target] = result;
-    statusNode.textContent = `已处理：${Math.round(result.blob.size / 1024)}KB · 自动绑定编号`;
-    toast('照片已压缩并绑定编号');
+    statusNode.textContent = `已添加 · ${Math.round(result.blob.size / 1024)} KB`;
+
   } catch (error) {
     statusNode.textContent = '照片处理失败，请重试';
     toast('照片处理失败');
@@ -172,9 +171,11 @@ async function parseScanFile(file) {
 }
 function showScanResult(scan) {
   state.scan = scan;
+  $('scannerState').textContent = '已导入';
+  $('scannerState').classList.remove('gray');
   $('scanResult').classList.remove('hidden');
   $('scanId').textContent = scan.scanId;
-  $('scanDimensions').textContent = scan.lengthMm && scan.widthMm && scan.heightMm ? `${scan.lengthMm.toFixed(2)} × ${scan.widthMm.toFixed(2)} × ${scan.heightMm.toFixed(2)} mm` : '文件已接收，等待 SDK 解析';
+  $('scanDimensions').textContent = scan.lengthMm && scan.widthMm && scan.heightMm ? `${scan.lengthMm.toFixed(2)} × ${scan.widthMm.toFixed(2)} × ${scan.heightMm.toFixed(2)} mm` : '未识别，请手动填写';
   $('scanVolume').textContent = scan.volumeMm3 != null ? `${scan.volumeMm3.toFixed(2)} mm³` : '—';
   $('scanFileName').textContent = scan.fileName;
 }
@@ -208,7 +209,6 @@ async function refreshCounts() {
   const [boxes, items] = await Promise.all([dbAll('boxes'), dbAll('items')]);
   $('itemCount').textContent = items.length;
   $('boxCount').textContent = boxes.length;
-  $('progressBar').style.width = `${Math.min(100, Math.round(items.length / Math.max(10, boxes.length * 10) * 100))}%`;
 }
 async function refreshExportCounts() {
   const [boxes, items] = await Promise.all([dbAll('boxes'), dbAll('items')]);
@@ -219,7 +219,7 @@ async function chooseScene(scene) {
   state.scene = scene;
   await prepareNewBox();
   showScreen('box');
-  toast(`已生成${SCENE_NAMES[scene]}编号`);
+
 }
 async function submitBox(event) {
   event.preventDefault();
@@ -230,11 +230,11 @@ async function submitBox(event) {
   localStorage.setItem('inventory-current-box', state.currentBox.id);
   await prepareItemId();
   showScreen('item');
-  toast('箱级记录已保存');
+  toast('开箱记录已保存');
 }
 async function submitItem(event) {
   event.preventDefault();
-  if (!state.currentBox) { toast('请先建立箱级记录'); showScreen('home'); return; }
+  if (!state.currentBox) { toast('请先建立开箱记录'); showScreen('home'); return; }
   const id = $('itemId').textContent;
   const photoId = await savePendingPhoto('item', id, state.pendingItemPhoto, '照片01');
   const scanId = state.scan?.scanId || '';
@@ -242,9 +242,10 @@ async function submitItem(event) {
   const item = {id, boxId:state.currentBox.id, scene:state.scene, sceneName:SCENE_NAMES[state.scene], category:$('itemCategory').value, name:$('itemName').value.trim(), lengthMm:parseNumber($('lengthMm').value), widthMm:parseNumber($('widthMm').value), heightMm:parseNumber($('heightMm').value), weightG:parseNumber($('weightG').value), location:$('itemLocation').value.trim(), photoIds:photoId?[photoId]:[], scanId, scanFileId, volumeMm3:state.scan?.volumeMm3 ?? null, exception:$('itemException').checked, createdAt:nowText()};
   await dbPut('items', item);
   state.pendingItemPhoto = null; state.scan = null;
-  $('itemForm').reset(); $('scanResult').classList.add('hidden');
+  $('itemForm').reset(); $('itemPhotoStatus').textContent = ''; $('scanResult').classList.add('hidden');
+  $('scanFile').value = ''; $('scannerState').textContent = '未导入'; $('scannerState').classList.add('gray');
   await prepareItemId(); refreshCounts();
-  toast('物品记录已保存，可继续下一件');
+  toast('已保存');
 }
 
 function csvCell(value) { return `"${String(value ?? '').replace(/"/g,'""')}"`; }
@@ -287,7 +288,7 @@ function bindEvents() {
   $$('[data-nav]').forEach((node) => node.addEventListener('click', async () => {
     const view=node.dataset.nav;
     if (view==='box' && !$('boxId').value) await prepareNewBox();
-    if (view==='item' && !state.currentBox) { toast('请先保存箱级记录'); return; }
+    if (view==='item' && !state.currentBox) { toast('请先保存开箱记录'); return; }
     showScreen(view);
   }));
   $('checkUpdates').addEventListener('click', () => {
@@ -296,7 +297,7 @@ function bindEvents() {
     localStorage.setItem('inventory-update-url', url);
     if (!url) { toast('已清除更新地址'); return; }
     if (window.AndroidBridge?.checkUpdates) { toast('正在检查新版本…'); window.AndroidBridge.checkUpdates(url, false); }
-    else toast('地址已保存，请在 Android APK 中检查更新');
+    else toast('已保存地址，请在手机 App 中检查更新');
   });
   $('settingsButton').addEventListener('click', () => showScreen('settings'));
   $('settingsBack').addEventListener('click', () => showScreen('home'));
@@ -308,13 +309,6 @@ function bindEvents() {
   $('exportButton').addEventListener('click', exportPackage);
   $('boxPhoto').addEventListener('change', (e) => handlePhoto(e.target, $('boxPhotoStatus'), 'box'));
   $('itemPhoto').addEventListener('change', (e) => handlePhoto(e.target, $('itemPhotoStatus'), 'item'));
-  $$('[data-connection]').forEach((node) => node.addEventListener('click', () => {
-    const method=node.dataset.connection;
-    $('scannerState').textContent=method==='文件导入'?'等待文件':'待 SDK 接入';
-    $('scannerState').classList.toggle('gray', method!=='文件导入');
-    toast(method==='文件导入'?'请选择扫描文件':'已记录连接方式，等待设备 SDK');
-    if(method==='文件导入') $('scanFile').click();
-  }));
   $('scanFile').addEventListener('change', async (e) => { const file=e.target.files?.[0];if(!file)return;showScanResult(await parseScanFile(file));toast('扫描文件已读取'); });
 }
 

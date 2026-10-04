@@ -11,70 +11,81 @@
 </head>
 <body>
   <div class="phone-shell">
-    <div class="statusbar"><span id="clock">09:41</span><span id="networkState">离线 · 本地保存</span></div>
+    <div class="statusbar"><span id="clock">09:41</span><span id="networkState">离线可用</span></div>
     <header class="appbar">
-      <div><h1>地博清查</h1><p id="contextText">选择场景开始</p></div>
+      <h1>地博清查</h1>
       <button class="icon-button" id="settingsButton" aria-label="设置">⚙</button>
     </header>
 
     <main class="content">
       <section class="screen active" data-screen="home">
-        <p class="eyebrow">开始一项清查</p>
-        <h2>选择场景</h2>
-        <p class="hint">选择后自动生成编号；没有扫描设备也可以完整手动录入。</p>
+        <h2>开始清查</h2>
         <div class="scene-list">
-          <button class="scene-card" data-scene="warehouse"><span class="scene-icon">▣</span><span><b>仓库开箱</b><small>一箱一开，逐件建立清查号</small></span><i>›</i></button>
-          <button class="scene-card" data-scene="display"><span class="scene-icon">◇</span><span><b>馆内展柜</b><small>预约开柜，逐件核对与复位</small></span><i>›</i></button>
-          <button class="scene-card" data-scene="facility"><span class="scene-icon">▤</span><span><b>设备设施</b><small>数量、位置、状态与价值凭证</small></span><i>›</i></button>
+          <button class="scene-card" data-scene="warehouse"><span class="scene-icon">▣</span><span><b>仓库开箱</b></span><i>›</i></button>
+          <button class="scene-card" data-scene="display"><span class="scene-icon">◇</span><span><b>馆内展柜</b></span><i>›</i></button>
+          <button class="scene-card" data-scene="facility"><span class="scene-icon">▤</span><span><b>设备设施</b></span><i>›</i></button>
         </div>
-        <div class="summary-card"><div class="row"><span class="muted">本机进度</span><span class="chip">离线可用</span></div><div class="progress-row"><strong id="itemCount">0</strong><span class="muted">件已保存<br><span id="boxCount">0</span> 箱</span><span class="progress"><i id="progressBar"></i></span></div></div>
+        <div class="summary-card inventory-summary"><h3>本机记录</h3><div class="count-grid"><div><strong id="itemCount">0</strong><span>件物品</span></div><div><strong id="boxCount">0</strong><span>批记录</span></div></div></div>
       </section>
 
       <section class="screen" data-screen="box">
-        <p class="eyebrow">01 / 箱级记录</p><h2>一箱一开</h2><p class="hint">先登记箱级信息，再进入逐件记录。</p>
+        <h2>开箱登记</h2>
         <form id="boxForm" class="card">
-          <div class="row"><span class="chip" id="boxSceneChip">仓库开箱</span><span class="success-text">● 本地保存</span></div>
-          <label>自动箱号<input id="boxId" readonly></label>
+          <div class="row"><span class="chip" id="boxSceneChip">仓库开箱</span></div>
+          <label>箱号<input id="boxId" readonly></label>
           <div class="two-col"><label>原位置<input id="boxOriginalLocation" placeholder="如：库房 A-03"></label><label>当前库位<input id="boxCurrentLocation" placeholder="如：工位 A-01"></label></div>
-          <div class="two-col"><label>开箱人<input id="boxOperator" placeholder="姓名" required></label><label>箱子状态<select id="boxStatus"><option>清点中</option><option>部分完成</option><option>已回存</option></select></label></div>
-          <label class="photo-drop"><input id="boxPhoto" type="file" accept="image/*" capture="environment"><strong>＋ 拍箱体照片</strong><small id="boxPhotoStatus">照片会绑定箱号并自动压缩到 5MB 以内</small></label>
-          <button class="primary-button" type="submit">保存并登记第一件</button>
+          <div class="two-col"><label>登记人<input id="boxOperator" placeholder="姓名" required></label><label>状态<select id="boxStatus"><option>清点中</option><option>部分完成</option><option>已回存</option></select></label></div>
+          <label class="photo-drop"><input id="boxPhoto" type="file" accept="image/*" capture="environment"><strong>拍箱体照片</strong><small id="boxPhotoStatus"></small></label>
+          <button class="primary-button" type="submit">保存并登记物品</button>
         </form>
       </section>
 
       <section class="screen" data-screen="item">
-        <p class="eyebrow">02 / 逐件登记</p><h2>新建一件物品</h2><p class="hint">手动填写，或让扫描仪回填尺寸与体积。</p>
+        <h2>物品登记</h2>
         <form id="itemForm" class="card">
-          <div class="row"><span class="chip">清查号 <b id="itemId">—</b></span><button type="button" class="outline-button" id="openScanner">接入扫描仪</button></div>
-          <label>分类<select id="itemCategory"><option value="mineral">矿物 / 岩石 / 其他标本</option><option value="jewelry">珠宝</option><option value="equipment">电子设备</option><option value="facility">陈列及基础设施</option></select></label>
-          <label>名称或待鉴定描述<input id="itemName" placeholder="现场名称"></label>
+          <div class="record-header"><div><span class="field-label">清查号</span><b id="itemId">—</b></div><button type="button" class="outline-button" id="openScanner">导入扫描</button></div>
+          <label>分类<select id="itemCategory"><option value="mineral">矿物、岩石及标本</option><option value="jewelry">珠宝</option><option value="equipment">电子设备</option><option value="facility">陈列及基础设施</option></select></label>
+          <label>名称<input id="itemName" placeholder="未鉴定可填写外观描述"></label>
           <div class="two-col"><label>长（mm）<input id="lengthMm" inputmode="decimal"></label><label>宽（mm）<input id="widthMm" inputmode="decimal"></label><label>高（mm）<input id="heightMm" inputmode="decimal"></label><label>重量（g）<input id="weightG" inputmode="decimal"></label></div>
           <label>当前位置<input id="itemLocation" placeholder="库位 / 展柜 / 工位"></label>
-          <label class="photo-drop"><input id="itemPhoto" type="file" accept="image/*" capture="environment"><strong>＋ 拍物品照片</strong><small id="itemPhotoStatus">照片自动绑定当前清查号</small></label>
-          <label class="check-line"><input id="itemException" type="checkbox"> 待处理或异常，稍后补充</label>
-          <button class="primary-button" type="submit">保存本件，继续下一件</button>
+          <label class="photo-drop"><input id="itemPhoto" type="file" accept="image/*" capture="environment"><strong>拍物品照片</strong><small id="itemPhotoStatus"></small></label>
+          <label class="check-line"><input id="itemException" type="checkbox"> 标记异常</label>
+          <button class="primary-button" type="submit">保存，下一件</button>
         </form>
       </section>
 
       <section class="screen" data-screen="scanner">
-        <p class="eyebrow">设备适配器</p><h2>扫描仪接入</h2><p class="hint">实际连接方式取决于采购型号；文件导入可先用于试点。</p>
-        <div class="scanner-card"><div class="row"><b id="scannerName">Xscanner 类设备</b><span class="chip gray" id="scannerState">未连接</span></div><div class="connection-grid"><button data-connection="USB 3.0">USB 3.0</button><button data-connection="蓝牙">蓝牙</button><button data-connection="Wi‑Fi">Wi‑Fi</button><button data-connection="文件导入">文件导入</button></div><p class="muted small">支持导入 Xpro、PLY、TXT、STL、OFF、OBJ；厂商 SDK 接入后可自动回填扫描结果。</p></div>
-        <div id="scanResult" class="scan-result hidden"><div class="row"><b>扫描结果</b><span class="success-text">已回填</span></div><ul><li>扫描编号：<b id="scanId">—</b></li><li>长 × 宽 × 高：<b id="scanDimensions">—</b></li><li>体积：<b id="scanVolume">—</b></li><li>原始文件：<b id="scanFileName">—</b></li></ul><button class="primary-button" id="applyScan">应用到当前物品</button></div>
-        <label class="file-button"><input id="scanFile" type="file" accept=".json,.csv,.txt,.obj,.ply,.stl,.off,.xpro">选择扫描文件</label>
-        <button class="outline-button full" id="backToItem">返回手动录入</button>
+        <h2>扫描数据</h2>
+        <div class="scanner-card"><div class="row"><b id="scannerName">扫描文件</b><span class="chip gray" id="scannerState">未导入</span></div></div>
+        <div id="scanResult" class="scan-result hidden"><div class="row"><b>扫描结果</b><span class="chip">待应用</span></div><ul><li>编号：<b id="scanId">—</b></li><li>尺寸：<b id="scanDimensions">—</b></li><li>体积：<b id="scanVolume">—</b></li><li>文件：<b id="scanFileName">—</b></li></ul><button class="primary-button" id="applyScan">填入当前物品</button></div>
+        <label class="file-button"><input id="scanFile" type="file" accept=".json,.csv,.txt,.obj,.ply,.stl,.off,.xpro">导入扫描文件</label>
+        <button class="outline-button full" id="backToItem">返回登记</button>
       </section>
 
       <section class="screen" data-screen="export">
-        <p class="eyebrow">03 / 导出交接</p><h2>导出清查包</h2><p class="hint">一箱完成后即可导出，便于交接和备份。</p>
-        <div class="summary-card"><div class="row"><b>本机数据</b><span class="chip" id="exportCounts">0 件 · 0 箱</span></div><ul class="plain-list"><li>清查表.csv <span>含照片文件名</span></li><li>清查表.html <span>含照片缩略图</span></li><li>原图/ <span>按清查号归档</span></li><li>扫描文件/ <span>保留原始格式</span></li></ul></div>
-        <button class="primary-button" id="exportButton">导出 Excel 兼容表 + 照片包</button>
-        <div class="summary-card"><div class="row"><b>馆藏系统接口</b><span class="chip gray">暂未接入</span></div><p class="muted small">先导出标准表和照片包；取得系统接口后，再启用自动录入适配器。</p></div>
+        <h2>导出</h2>
+        <div class="summary-card"><div class="row"><b>本机数据</b><span class="chip" id="exportCounts">0 件 · 0 箱</span></div><ul class="plain-list"><li>清查表.csv <span>明细与照片文件名</span></li><li>清查表.xls <span>兼容表，内含照片</span></li><li>原图/ <span>按编号命名</span></li><li>扫描文件/ <span>原始文件</span></li></ul></div>
+        <button class="primary-button" id="exportButton">导出清查包</button>
       </section>
 
-      <section class="screen" data-screen="settings"><p class="eyebrow">设置</p><h2>设备与字段</h2><p class="hint">现场先保持简单，设备适配可后续开启。</p><div class="card"><label>默认扫描仪<input value="Xscanner 类设备"></label><label>扫描结果覆盖规则<select><option>仅填充空字段</option><option>每次询问</option></select></label><label class="check-line"><input type="checkbox" checked> 保存原始扫描文件</label><label class="check-line"><input type="checkbox" checked> 单张照片超过 5MB 自动压缩</label></div><div class="card"><b>软件更新</b><label>版本清单地址（HTTPS）<input id="updateUrl" type="url" placeholder="https://您的服务器/updates/version.json"></label><p class="small muted">配置后每次启动检查新版本；不会上传清查数据。</p><button class="outline-button full" id="checkUpdates">保存地址并检查更新</button></div><button class="outline-button full" id="settingsBack">返回首页</button></section>
+      <section class="screen" data-screen="settings">
+        <h2>设置</h2>
+        <div class="card">
+          <div class="row"><h3>软件更新</h3><span class="muted small">v1.0.2</span></div>
+          <button class="outline-button full" id="checkUpdates">检查更新</button>
+          <details class="disclosure"><summary>更新地址</summary><label>版本清单（HTTPS）<input id="updateUrl" type="url" placeholder="https://…/version.json"></label><p>修改后点“检查更新”保存。</p></details>
+        </div>
+        <details class="card disclosure"><summary>使用帮助</summary>
+          <h3>照片与导出</h3><p>照片自动处理至 5 MB 以内，并按编号命名。导出包内含带照片的兼容表、CSV 明细和独立照片文件夹。</p>
+          <h3>扫描设备</h3><p>目前通过文件导入扫描数据。Xscanner 直连需取得具体型号的接口或 SDK 后适配。</p><p>支持读取约定字段的 JSON、文本，以及部分 OBJ、ASCII STL、PLY 模型。Xpro、OFF 文件仅归档。</p>
+          <h3>软件更新</h3><p>Android 版启动时检查新版本，确认后下载安装。升级前导出备份，覆盖安装时不要卸载旧版。</p>
+          <h3>馆藏系统</h3><p>目前使用导出文件交接，自动录入待接口提供后接入。</p>
+        </details>
+        <button class="outline-button full" id="settingsBack">返回首页</button>
+      </section>
     </main>
 
-    <nav class="bottom-nav"><button class="active" data-nav="home"><b>⌂</b>首页</button><button data-nav="box"><b>▣</b>开箱</button><button data-nav="item"><b>＋</b>逐件</button><button data-nav="export"><b>⇩</b>导出</button></nav>
+    <nav class="bottom-nav"><button class="active" data-nav="home"><b>⌂</b>首页</button><button data-nav="box"><b>▣</b>开箱</button><button data-nav="item"><b>＋</b>登记</button><button data-nav="export"><b>⇩</b>导出</button></nav>
   </div>
   <div class="toast" id="toast" role="status"></div>
   <script src="app.js" defer></script>
