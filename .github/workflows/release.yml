@@ -20,6 +20,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Scan format regression
+        run: node --test tests/scanner-format.test.cjs
       - name: Restore signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

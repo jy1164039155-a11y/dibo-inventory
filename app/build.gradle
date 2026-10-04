@@ -4,7 +4,7 @@ def keyFile = rootProject.file('keystore.properties')
 if (keyFile.exists()) { keyFile.withInputStream { key.load(it) } }
 
 android { namespace 'cn.hunanmuseum.inventory'; compileSdk 35
-    defaultConfig { applicationId 'cn.hunanmuseum.inventory'; minSdk 26; targetSdk 35; versionCode Integer.parseInt(project.findProperty('appVersionCode') ?: '10003'); versionName project.findProperty('appVersionName') ?: '1.0.3' }
+    defaultConfig { applicationId 'cn.hunanmuseum.inventory'; minSdk 26; targetSdk 35; versionCode Integer.parseInt(project.findProperty('appVersionCode') ?: '10004'); versionName project.findProperty('appVersionName') ?: '1.0.4' }
     signingConfigs { release {
         if (keyFile.exists()) {
             storeFile rootProject.file(key.getProperty('storeFile'))

@@ -1,0 +1,33 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const path=require('node:path');
+const fs=require('node:fs');
+const web=fs.existsSync(path.resolve('清查App'))?path.resolve('清查App'):path.resolve('app/src/main/assets/www');
+const parser=require(path.join(web,'scanner-format.js'));
+function file(name,text){const data=Buffer.isBuffer(text)?text:Buffer.from(text);return {name,size:data.length,arrayBuffer:async()=>data.buffer.slice(data.byteOffset,data.byteOffset+data.length)};}
+async function dims(name,text,unit='mm'){return parser.measured(await parser.parse(file(name,text)),unit);}
+test('JSON explicit mm and volume',async()=>assert.deepEqual(await dims('a.json','{"length_mm":12,"width_mm":8,"height_mm":3,"volume_mm3":200}'),{lengthMm:12,widthMm:8,heightMm:3,volumeMm3:200}));
+test('cm converts lengths and cubic volume',async()=>assert.deepEqual(await dims('a.json','{"length":2,"width":3,"height":4,"volume":20,"unit":"cm"}'),{lengthMm:20,widthMm:30,heightMm:40,volumeMm3:20000}));
+test('explicit cubic unit is independent',async()=>assert.equal((await dims('a.json','{"length_mm":2,"width_mm":3,"height_mm":4,"volume":2,"volume_unit":"cm3"}')).volumeMm3,2000));
+test('missing unit requires user choice',async()=>{const scan=await parser.parse(file('a.json','{"length":1,"width":2,"height":3}'));assert.throws(()=>parser.measured(scan,''),/单位/);});
+test('malformed JSON rejected',async()=>assert.rejects(()=>dims('a.json','{"length":'),/JSON 格式错误/));
+test('zero and negative rejected',async()=>{for(const n of [0,-1])await assert.rejects(()=>dims('a.json',JSON.stringify({length_mm:n})),/大于 0/);});
+test('invalid numeric suffix rejected',async()=>assert.rejects(()=>dims('a.json','{"length_mm":"12abc"}'),/无效数字/));
+test('unsupported unit rejected',async()=>assert.rejects(()=>dims('a.json','{"length":1,"unit":"inch"}'),/单位/));
+test('CSV header rows',async()=>assert.equal((await dims('a.csv','length_mm,width_mm,height_mm\n12,8,3')).widthMm,8));
+test('CSV multiple items rejected',async()=>assert.rejects(()=>dims('a.csv','length_mm,width_mm,height_mm\n12,8,3\n10,20,30'),/一件/));
+test('labelled TXT',async()=>assert.equal((await dims('a.txt','length_mm:12\nwidth_mm:8\nheight_mm:3')).heightMm,3));
+test('point-cloud TXT scientific notation',async()=>assert.equal((await dims('a.txt','-1e1 0 .5\n2 8 3.5')).lengthMm,12));
+test('OBJ scientific notation and leading dot',async()=>{const result=await dims('a.obj','v -1e1 0 .5\nv 2 8 3.5\nf 1 2 3');assert.equal(result.lengthMm,12);assert.equal(result.volumeMm3,null);});
+test('large vertex count without spread overflow',async()=>{const text='v 0 0 0\n'+'v 12 8 3\n'.repeat(150000);assert.equal((await dims('a.obj',text)).lengthMm,12);});
+test('PLY reads exactly vertex count, ignores faces',async()=>{const data='ply\nformat ascii 1.0\nelement vertex 2\nproperty float x\nproperty float y\nproperty float z\nelement face 1\nproperty list uchar int vertex_indices\nend_header\n0 0 0\n12 8 3\n3 100 200 300';assert.equal((await dims('a.ply',data)).heightMm,3);});
+test('PLY reordered vertex properties',async()=>{const data='ply\nformat ascii 1.0\nelement vertex 2\nproperty uchar red\nproperty float z\nproperty float x\nproperty float y\nend_header\n255 0 0 0\n0 3 12 8';assert.equal((await dims('a.ply',data)).lengthMm,12);});
+for(const endian of ['little','big'])test(`binary ${endian} endian PLY`,async()=>{const head=Buffer.from(`ply\nformat binary_${endian}_endian 1.0\nelement vertex 2\nproperty float x\nproperty float y\nproperty float z\nend_header\n`),body=Buffer.alloc(24);[0,0,0,12,8,3].forEach((v,i)=>body[endian==='little'?'writeFloatLE':'writeFloatBE'](v,i*4));assert.equal((await dims('a.ply',Buffer.concat([head,body]))).heightMm,3);});
+test('binary STL',async()=>{const data=Buffer.alloc(134);data.writeUInt32LE(1,80);[0,0,0,12,8,3,3,2,1].forEach((v,i)=>data.writeFloatLE(v,96+i*4));assert.equal((await dims('a.stl',data)).lengthMm,12);});
+test('ASCII STL',async()=>assert.equal((await dims('a.stl','solid s\nvertex 0 0 0\nvertex 12 8 3\nendsolid')).widthMm,8));
+test('OFF',async()=>assert.equal((await dims('a.off','OFF\n2 0 0\n0 0 0\n12 8 3')).heightMm,3));
+test('truncated vertex rejected',async()=>assert.rejects(()=>dims('a.obj','v 0 0\nv 12 8 3'),/不完整/));
+test('Xpro archive only',async()=>{const scan=await parser.parse(file('a.xpro','vendor format'));assert.equal(scan.archiveOnly,true);assert.equal(parser.measured(scan,'').volumeMm3,null);});
+test('empty and oversized files rejected before reading',async()=>{await assert.rejects(()=>parser.parse(file('a.obj','')),/为空/);await assert.rejects(()=>parser.parse({name:'a.obj',size:parser.MAX_BYTES+1}),/20 MB/);});
+test('unknown file type rejected',async()=>assert.rejects(()=>dims('a.exe','unknown'),/格式/));
+test('unit conversion overflow rejected',async()=>assert.rejects(()=>dims('a.json','{"length":1e308,"unit":"m"}'),/过大/));

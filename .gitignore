@@ -12,3 +12,7 @@ release.env
 *.apk
 *.jks
 *.keystore
+
+node_modules/
+test-results/
+apk-build/
