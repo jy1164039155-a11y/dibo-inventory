@@ -13,7 +13,7 @@
   <div class="phone-shell">
     <div class="statusbar"><span id="clock">09:41</span><span id="networkState">离线可用</span></div>
     <header class="appbar">
-      <h1>地博清查</h1>
+      <h1 id="appTitle">地博清查</h1>
       <button class="icon-button" id="settingsButton" aria-label="设置">⚙</button>
     </header>
 
@@ -36,7 +36,6 @@
           <div class="two-col"><label>原位置<input id="boxOriginalLocation" placeholder="如：库房 A-03"></label><label>当前库位<input id="boxCurrentLocation" placeholder="如：工位 A-01"></label></div>
           <div class="two-col"><label>登记人<input id="boxOperator" placeholder="姓名" required></label><label>状态<select id="boxStatus"><option>清点中</option><option>部分完成</option><option>已回存</option></select></label></div>
           <label class="photo-drop"><input id="boxPhoto" type="file" accept="image/*" capture="environment"><strong>拍箱体照片</strong><small id="boxPhotoStatus"></small></label>
-          <button class="primary-button" type="submit">保存并登记物品</button>
         </form>
       </section>
 
@@ -50,7 +49,6 @@
           <label>当前位置<input id="itemLocation" placeholder="库位 / 展柜 / 工位"></label>
           <label class="photo-drop"><input id="itemPhoto" type="file" accept="image/*" capture="environment"><strong>拍物品照片</strong><small id="itemPhotoStatus"></small></label>
           <label class="check-line"><input id="itemException" type="checkbox"> 标记异常</label>
-          <button class="primary-button" type="submit">保存，下一件</button>
         </form>
       </section>
 
@@ -65,13 +63,12 @@
       <section class="screen" data-screen="export">
         <h2>导出</h2>
         <div class="summary-card"><div class="row"><b>本机数据</b><span class="chip" id="exportCounts">0 件 · 0 箱</span></div><ul class="plain-list"><li>清查表.csv <span>明细与照片文件名</span></li><li>清查表.xls <span>兼容表，内含照片</span></li><li>原图/ <span>按编号命名</span></li><li>扫描文件/ <span>原始文件</span></li></ul></div>
-        <button class="primary-button" id="exportButton">导出清查包</button>
       </section>
 
       <section class="screen" data-screen="settings">
         <h2>设置</h2>
         <div class="card">
-          <div class="row"><h3>软件更新</h3><span class="muted small">v1.0.2</span></div>
+          <div class="row"><h3>软件更新</h3><span class="muted small">v1.0.3</span></div>
           <button class="outline-button full" id="checkUpdates">检查更新</button>
           <details class="disclosure"><summary>更新地址</summary><label>版本清单（HTTPS）<input id="updateUrl" type="url" placeholder="https://…/version.json"></label><p>修改后点“检查更新”保存。</p></details>
         </div>
@@ -85,6 +82,11 @@
       </section>
     </main>
 
+    <div class="action-dock hidden" id="actionDock">
+      <button class="primary-button hidden" type="submit" form="boxForm" data-action-screen="box">保存并登记物品</button>
+      <button class="primary-button hidden" type="submit" form="itemForm" data-action-screen="item">保存，下一件</button>
+      <button class="primary-button hidden" id="exportButton" data-action-screen="export">导出清查包</button>
+    </div>
     <nav class="bottom-nav"><button class="active" data-nav="home"><b>⌂</b>首页</button><button data-nav="box"><b>▣</b>开箱</button><button data-nav="item"><b>＋</b>登记</button><button data-nav="export"><b>⇩</b>导出</button></nav>
   </div>
   <div class="toast" id="toast" role="status"></div>

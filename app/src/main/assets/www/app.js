@@ -45,7 +45,12 @@ function toast(message) {
   toast.timer = window.setTimeout(() => node.classList.remove('show'), 2200);
 }
 function showScreen(name) {
+  const titles = {home:'地博清查', box:'开箱登记', item:'物品登记', scanner:'扫描数据', export:'导出', settings:'设置'};
+  $('appTitle').textContent = titles[name] || titles.home;
+  $('settingsButton').style.visibility = name === 'settings' ? 'hidden' : 'visible';
   $$('.screen').forEach((node) => node.classList.toggle('active', node.dataset.screen === name));
+  $$('[data-action-screen]').forEach((node) => node.classList.toggle('hidden', node.dataset.actionScreen !== name));
+  $('actionDock').classList.toggle('hidden', !['box', 'item', 'export'].includes(name));
   $$('.bottom-nav button').forEach((node) => node.classList.toggle('active', node.dataset.nav === name));
   document.querySelector('.content').scrollTop = 0;
   if (name === 'home') refreshCounts();
