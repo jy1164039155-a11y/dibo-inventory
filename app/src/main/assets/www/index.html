@@ -26,17 +26,26 @@
           <button class="scene-card" data-scene="facility"><span class="scene-icon">▤</span><span><b>设备设施</b></span><i>›</i></button>
         </div>
         <div class="summary-card inventory-summary"><h3>本机记录</h3><div class="count-grid"><div><strong id="itemCount">0</strong><span>件物品</span></div><div><strong id="boxCount">0</strong><span>批记录</span></div></div></div>
+        <div id="localRecords" class="local-records" aria-label="已登记记录"></div>
       </section>
 
       <section class="screen" data-screen="box">
-        <h2>开箱登记</h2>
+        <h2 id="groupHeading">开箱登记</h2>
         <form id="boxForm" class="card">
           <div class="row"><span class="chip" id="boxSceneChip">仓库开箱</span></div>
-          <label>箱号<input id="boxId" readonly></label>
-          <div class="two-col"><label>原位置<input id="boxOriginalLocation" placeholder="如：库房 A-03"></label><label>当前库位<input id="boxCurrentLocation" placeholder="如：工位 A-01"></label></div>
+          <label><span id="groupIdLabel">箱号</span><input id="boxId" readonly></label>
+          <label id="groupNameField" class="hidden"><span id="groupNameLabel">展厅名称</span><input id="groupName" maxlength="100"></label>
+          <div class="two-col"><label id="originalLocationField">原位置<input id="boxOriginalLocation" placeholder="如：库房 A-03"></label><label id="currentLocationField"><span id="currentLocationLabel">当前库位</span><input id="boxCurrentLocation" placeholder="如：工位 A-01"></label></div>
           <div class="two-col"><label>登记人<input id="boxOperator" placeholder="姓名" required></label><label>状态<select id="boxStatus"><option>清点中</option><option>部分完成</option><option>已回存</option></select></label></div>
-          <label class="photo-drop"><input id="boxPhoto" type="file" accept="image/*" capture="environment"><strong>拍箱体照片</strong><small id="boxPhotoStatus"></small></label>
+          <label class="photo-drop"><input id="boxPhoto" type="file" accept="image/*" capture="environment"><strong id="groupPhotoLabel">拍箱体照片</strong><small id="boxPhotoStatus"></small></label>
+          <img id="boxPhotoPreview" class="photo-preview hidden" alt="已保存的场景照片">
         </form>
+      </section>
+
+      <section class="screen" data-screen="records">
+        <div class="card"><div class="row"><h3 id="recordsTitle"></h3><span class="chip" id="recordsScene"></span></div><p class="small muted" id="recordsMeta"></p><p class="small" id="recordsId"></p><img id="recordsPhotoPreview" class="photo-preview hidden" alt="场景照片"><button class="outline-button full" id="editGroup">修改登记信息</button><button class="primary-button" id="continueItems">继续登记物品</button></div>
+        <div class="row record-list-heading"><h3>已登记物品</h3><span class="muted small" id="recordsCount"></span></div>
+        <div id="recordItems" class="record-list" aria-label="物品列表"></div>
       </section>
 
       <section class="screen" data-screen="item">
@@ -49,8 +58,11 @@
           <div class="two-col hidden" id="assetFields"><label>数量<input id="itemQuantity" type="number" min="1" step="1" value="1"></label><label>账面价值（元）<input id="itemValue" inputmode="decimal"></label></div>
           <label>当前位置<input id="itemLocation" placeholder="库位 / 展柜 / 工位"></label>
           <label class="photo-drop"><input id="itemPhoto" type="file" accept="image/*" capture="environment"><strong>拍物品照片</strong><small id="itemPhotoStatus"></small></label>
+          <img id="itemPhotoPreview" class="photo-preview hidden" alt="已保存的物品照片">
+          <p id="savedScanInfo" class="small muted hidden"></p>
           <label class="check-line"><input id="itemException" type="checkbox"> 标记异常</label>
         </form>
+        <button class="outline-button full" id="backToRecords">查看本批物品</button>
       </section>
 
       <section class="screen" data-screen="scanner">
@@ -71,7 +83,7 @@
 
       <section class="screen" data-screen="export">
         <h2>导出</h2>
-        <div class="summary-card"><div class="row"><b>本机数据</b><span class="chip" id="exportCounts">0 件 · 0 箱</span></div><ul class="plain-list"><li>箱目录.csv <span>位置、登记人与箱照</span></li><li>清查表.csv <span>明细与照片文件名</span></li><li>清查表.xls <span>兼容表，内含照片</span></li><li>原图/ <span>按编号命名</span></li><li>扫描文件/ <span>原始文件</span></li></ul></div>
+        <div class="summary-card"><div class="row"><b>本机数据</b><span class="chip" id="exportCounts">0 件 · 0 批</span></div><ul class="plain-list"><li>场景记录目录.csv <span>箱、展厅、楼层与位置</span></li><li>箱目录.csv <span>保留原交接格式</span></li><li>清查表.csv <span>明细与照片文件名</span></li><li>清查表.xls <span>兼容表，内含照片</span></li><li>原图/ <span>按编号命名</span></li><li>扫描文件/ <span>原始文件</span></li></ul></div>
       </section>
 
       <section class="screen" data-screen="settings">
@@ -93,13 +105,14 @@
 
     <div class="action-dock hidden" id="actionDock">
       <button class="primary-button hidden" type="submit" form="boxForm" data-action-screen="box">保存并登记物品</button>
-      <button class="primary-button hidden" type="submit" form="itemForm" data-action-screen="item">保存，下一件</button>
+      <button class="primary-button hidden" id="itemSaveButton" type="submit" form="itemForm" data-action-screen="item">保存，下一件</button>
       <button class="primary-button hidden" id="exportButton" data-action-screen="export">导出清查包</button>
     </div>
-    <nav class="bottom-nav"><button class="active" data-nav="home"><b>⌂</b>首页</button><button data-nav="box"><b>▣</b>开箱</button><button data-nav="item"><b>＋</b>登记</button><button data-nav="export"><b>⇩</b>导出</button></nav>
+    <nav class="bottom-nav"><button class="active" data-nav="home"><b>⌂</b>首页</button><button data-nav="box"><b>▣</b>场景登记</button><button data-nav="item"><b>＋</b>登记</button><button data-nav="export"><b>⇩</b>导出</button></nav>
   </div>
   <div class="toast" id="toast" role="status"></div>
   <script src="scanner-format.js" defer></script>
+  <script src="records.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
