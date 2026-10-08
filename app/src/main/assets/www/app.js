@@ -2,7 +2,7 @@ const DB_NAME = 'museum-inventory-app';
 const DB_VERSION = 1;
 const SCENE_NAMES = {warehouse:'仓库开箱', display:'馆内展柜', facility:'设备设施'};
 const SCENE_CODES = {warehouse:'A', display:'D', facility:'F'};
-const state = {scene:'warehouse', currentBox:null, editingItem:null, groupReturn:false, itemIndex:1, pendingBoxPhoto:null, pendingItemPhoto:null, scan:null, generation:0, processing:0, saving:false, boxDirty:false, itemDirty:false,
+const state = {scene:'warehouse', historyScene:'warehouse', currentBox:null, editingItem:null, groupReturn:false, itemIndex:1, pendingBoxPhoto:null, pendingItemPhoto:null, scan:null, generation:0, processing:0, saving:false, boxDirty:false, itemDirty:false,
   get dirty(){return this.boxDirty||this.itemDirty;},set dirty(value){this.boxDirty=this.itemDirty=!!value;}};
 
 const $ = (id) => document.getElementById(id);
@@ -53,13 +53,13 @@ function toast(message) {
   toast.timer = window.setTimeout(() => node.classList.remove('show'), 2200);
 }
 function showScreen(name) {
-  const titles = {home:'地博清查', box:SCENE_FORMS[state.scene].title, item:state.editingItem?'修改物品':'物品登记', records:'已登记记录', scanner:'扫描仪接入', export:'导出', settings:'设置'};
+  const titles = {home:'地博清查', box:SCENE_FORMS[state.scene].title, item:state.editingItem?'修改物品':'物品登记', records:({warehouse:'仓库记录',display:'展厅记录',facility:'楼层记录'}[state.scene]), scanner:'扫描仪接入', export:'导出', settings:'设置'};
   $('appTitle').textContent = titles[name] || titles.home;
   $('settingsButton').style.visibility = name === 'settings' ? 'hidden' : 'visible';
   $$('.screen').forEach((node) => node.classList.toggle('active', node.dataset.screen === name));
   $$('[data-action-screen]').forEach((node) => node.classList.toggle('hidden', node.dataset.actionScreen !== name));
   $('actionDock').classList.toggle('hidden', !['box', 'item', 'export'].includes(name));
-  $$('.bottom-nav button').forEach((node) => node.classList.toggle('active', node.dataset.nav === name));
+  $$('.bottom-nav button').forEach((node) => node.classList.toggle('active', node.dataset.nav === (name==='records'?'home':name)));
   document.querySelector('.content').scrollTop = 0;
   if (name === 'home') refreshCounts().catch(error=>toast(error.message));
   if (name === 'records') renderRecords().catch(error=>toast(error.message));
@@ -87,7 +87,7 @@ function resetScan() {
   $('scanFile').value=''; $('scanUnit').value=''; $('scannerState').textContent='未导入'; $('scannerState').classList.add('gray');
 }
 function resetItem() {
-  state.editingItem=null;clearPreview('itemPhotoPreview');$('savedScanInfo').classList.add('hidden');
+  state.editingItem=null;clearPreview('itemPhotoPreview');$('savedScanDetails').classList.add('hidden');
   $('itemForm').reset(); state.pendingItemPhoto=null; $('itemPhotoStatus').textContent=''; resetScan();
   if(state.scene==='facility') $('itemCategory').value='equipment';
   $('itemLocation').value=state.currentBox?.currentLocation || '';
@@ -147,7 +147,7 @@ async function handlePhoto(input,statusNode,kind) {
     const result=await compressPhoto(file);
     if(generation!==state.generation)return;
     state[target]=result;state[kind==='box'?'boxDirty':'itemDirty']=true;
-    statusNode.textContent=`已添加 · ${Math.round(result.blob.size/1024)} KB`;
+    statusNode.textContent='已添加照片';
   } catch(error) { if(generation===state.generation) { statusNode.textContent='照片处理失败，请重新选择'; toast('照片处理失败'); } }
   finally { state.processing--; }
 }
@@ -242,13 +242,13 @@ async function refreshCounts() {
 }
 async function refreshExportCounts() {
   const [boxes, items] = await Promise.all([dbAll('boxes'), dbAll('items')]);
-  $('exportCounts').textContent = `${items.length} 件 · ${boxes.length} 批`;
+  $('exportCounts').textContent = `${items.length} 件 · ${boxes.length} 组`;
 }
 
 async function chooseScene(scene) {
   if(state.saving || state.processing) {toast('请等待当前操作完成');return;}
   if(state.dirty && !confirm('当前记录尚未保存，是否放弃并新建清查？'))return;
-  state.scene=scene; await prepareNewBox(); showScreen('box');
+  state.scene=scene;state.historyScene=scene; await prepareNewBox(); showScreen('box');
 }
 async function submitBox(event) {
   event.preventDefault();
@@ -343,7 +343,7 @@ async function exportPackage() { return saveTask(async()=>{
   const sceneCsv='\ufeff'+[['场景记录号','场景','箱号','展厅','楼层','位置','原位置','登记人','状态','场景照片','登记时间','更新时间'],...boxes.map(b=>[b.id,b.sceneName,b.scene==='warehouse'?b.id:'',b.hallName,b.floorName,b.currentLocation,b.originalLocation,b.operator,b.status,files.find(f=>f.id===b.photoId)?.name||'',b.openedAt,b.updatedAt])].map(row=>row.map(csvCell).join(',')).join('\r\n');
   const zipFiles=[{name:'场景记录目录.csv',data:new TextEncoder().encode(sceneCsv)},{name:'箱目录.csv',data:new TextEncoder().encode(boxCsv)},{name:'清查表.csv',data:new TextEncoder().encode(csv)},{name:'清查表.xls',data:new TextEncoder().encode(html)},{name:'导出说明.txt',data:new TextEncoder().encode(`导出时间：${nowText()}\n场景记录目录按箱、展厅、楼层与位置登记；箱目录保留原交接格式，其中“箱号”是各场景记录的关联编号。\n照片表内一份，“原图”文件夹保存 App 处理后的照片；扫描原文件在“扫描文件”文件夹。\n旧记录没有展厅或楼层名称时留空，可在 App 中补全。`)}];
   for(const file of files){const folder=file.kind==='scan'?'扫描文件':'原图';zipFiles.push({name:`${folder}/${safeName(file.name)}`,data:file.data});}
-  download(await buildZip(zipFiles),`清查导出_${dateCode()}.zip`);toast(window.AndroidBridge?'请选择清查包保存位置':`已导出 ${items.length} 件、${boxes.length} 批`);
+  download(await buildZip(zipFiles),`清查导出_${dateCode()}.zip`);toast(window.AndroidBridge?'请选择清查包保存位置':`已导出 ${items.length} 件、${boxes.length} 组`);
 }); }
 
 async function inventorySnapshot() {
@@ -371,12 +371,13 @@ function bindEvents() {
     showScreen(view);
   }));
   $('checkUpdates').addEventListener('click', () => {
+    if(state.dirty||state.saving||state.processing){toast('请先保存当前登记，再更新应用');return;}
     const url = $('updateUrl').value.trim();
     if (url && !validUpdateUrl(url)) { toast('更新地址必须使用 HTTPS'); return; }
     localStorage.setItem('inventory-update-url', url);
     if (!url) { toast('已清除更新地址'); return; }
     if (window.AndroidBridge?.checkUpdates) { toast('正在检查新版本…'); window.AndroidBridge.checkUpdates(url, false); }
-    else toast('已保存地址，请在手机 App 中检查更新');
+    else toast('请在安卓 App 中更新');
   });
   $('settingsButton').addEventListener('click', () => showScreen('settings'));
   $('settingsBack').addEventListener('click', () => showScreen('home'));

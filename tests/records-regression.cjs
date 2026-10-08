@@ -28,14 +28,23 @@ async function check(name,action){await action();checks.push(name);console.log('
    await dbPut('files',{id:'old-scan-file',ownerId:'A-OLD-001-01',kind:'scan',name:'old.json',data:new Blob(['{"volume_mm3":123}'])});
    localStorage.removeItem('inventory-current-box');
   });
+  async function openRecord(id){const scene=id.startsWith('A-')?'warehouse':id.startsWith('D-')?'display':'facility';await page.click(`[data-history-scene=${scene}]`);await page.click(`[data-record-id="${id}"]`);}
   await page.reload();
+  await check('本机记录按箱子、展厅、楼层切换，列表只显示必要摘要',async()=>{
+   await page.locator('[data-history-scene=warehouse]').waitFor({timeout:3000});
+   assert.equal(await page.locator('#localRecords [data-record-id]').count(),1);
+   assert(!(await page.textContent('#localRecords')).includes('旧登记人'));
+   await page.click('[data-history-scene=display]');await page.locator('[data-record-id="D-OLD-001"]').waitFor();
+   assert.equal(await page.locator('#localRecords [data-record-id]').count(),1);
+   await page.click('[data-history-scene=warehouse]');
+  });
   await check('退出后首页找回三场景旧记录',async()=>{
    await page.locator('[data-record-id="A-OLD-001"]').waitFor({timeout:3000});
-   for(const id of ['A-OLD-001','D-OLD-001','F-OLD-001'])assert.equal(await page.locator(`[data-record-id="${id}"]`).count(),1);
+   for(const [scene,id] of [['warehouse','A-OLD-001'],['display','D-OLD-001'],['facility','F-OLD-001']]){await page.click(`[data-history-scene=${scene}]`);await page.locator(`[data-record-id="${id}"]`).waitFor();}
    assert.equal(await page.locator('[data-nav=box]').innerText(),'▣\n场景登记');
   });
   await check('打开旧箱查看物品和照片',async()=>{
-   await page.click('[data-record-id="A-OLD-001"]');await page.locator('[data-item-id="A-OLD-001-01"]').waitFor();
+   await openRecord('A-OLD-001');await page.locator('[data-item-id="A-OLD-001-01"]').waitFor();assert.equal(await page.locator('#recordsId').isVisible(),false);assert.equal(await page.locator('#recordDetails').getAttribute('open'),null);assert(!(await page.textContent('#recordsMeta')).includes('旧登记人'));
    await page.click('[data-item-id="A-OLD-001-01"]');
    await page.locator('#itemForm').waitFor({state:'visible'});
    assert.equal(await page.inputValue('#itemName'),'旧标本-warehouse');
@@ -53,7 +62,7 @@ async function check(name,action){await action();checks.push(name);console.log('
   await check('旧批次接续登记、编号不重复',async()=>{
    await page.click('#continueItems');await page.waitForFunction(()=>document.querySelector('#itemId').textContent==='A-OLD-001-02');
    await page.fill('#itemName','补充标本');await page.click('[form=itemForm]');await page.waitForFunction(()=>document.querySelector('#itemId').textContent==='A-OLD-001-03');
-   await page.reload();await page.click('[data-record-id="A-OLD-001"]');await page.waitForFunction(()=>document.querySelectorAll('[data-item-id]').length===2);
+   await page.reload();await openRecord('A-OLD-001');await page.waitForFunction(()=>document.querySelectorAll('[data-item-id]').length===2);
   });
   await check('展厅独立表单与首页展示',async()=>{
    await page.click('[data-nav=home]');await page.click('[data-scene=display]');
@@ -67,27 +76,27 @@ async function check(name,action){await action();checks.push(name);console.log('
    await page.click('[data-nav=home]');await page.locator('#localRecords').getByText('生命演化厅',{exact:true}).waitFor();
   });
   await check('设备设施按楼层与位置登记',async()=>{
-   await page.click('[data-scene=facility]');await page.locator('#boxForm').waitFor({state:'visible'});assert.equal(await page.textContent('#appTitle'),'楼层与位置登记');
+   await page.click('[data-scene=facility]');await page.locator('#boxForm').waitFor({state:'visible'});assert.equal(await page.textContent('#appTitle'),'楼层登记');
    assert.equal(await page.textContent('#groupNameLabel'),'楼层');
    await page.fill('#groupName','三楼');await page.fill('#boxCurrentLocation','东侧机房');await page.fill('#boxOperator','设备员');await page.click('[form=boxForm]');
    await page.waitForFunction(()=>!!state.currentBox&&!state.saving);assert.equal(await page.inputValue('#itemLocation'),'东侧机房');
    await page.fill('#itemName','空调主机');await page.click('[form=itemForm]');await page.waitForFunction(()=>!state.saving);
-   await page.click('[data-nav=home]');await page.locator('#localRecords').getByText('三楼 · 东侧机房',{exact:true}).waitFor();
+   await page.click('[data-nav=home]');await page.locator('#localRecords').getByText('三楼',{exact:true}).waitFor();assert.equal(await page.locator('#localRecords').getByText('东侧机房',{exact:true}).count(),1);
   });
   await check('旧展厅记录可补全名称并保留已有字段',async()=>{
-   await page.click('[data-record-id="D-OLD-001"]');await page.click('#editGroup');await page.locator('#boxForm').waitFor({state:'visible'});
+   await openRecord('D-OLD-001');await page.click('#editGroup');await page.locator('#boxForm').waitFor({state:'visible'});
    assert.equal(await page.inputValue('#boxCurrentLocation'),'地球厅一号柜');
    await page.fill('#groupName','地球厅');await page.click('[form=boxForm]');await page.waitForFunction(()=>!state.saving);
    const box=await page.evaluate(async()=>(await dbAll('boxes')).find(x=>x.id==='D-OLD-001'));
    assert.equal(box.hallName,'地球厅');assert.equal(box.originalLocation,'旧原位置');assert.equal(box.customField,'preserve');
   });
   await check('未保存的物品切换批次先确认，取消后保留输入',async()=>{
-   await page.click('[data-nav=home]');await page.click('[data-record-id="A-OLD-001"]');await page.click('#continueItems');await page.fill('#itemName','未保存输入');await page.click('[data-nav=home]');
-   page.once('dialog',d=>d.dismiss());await page.click('[data-record-id="F-OLD-001"]');await page.click('[data-nav=item]');assert.equal(await page.inputValue('#itemName'),'未保存输入');
-   await page.click('[data-nav=home]');page.once('dialog',d=>d.accept());await page.click('[data-record-id="F-OLD-001"]');
+   await page.click('[data-nav=home]');await openRecord('A-OLD-001');await page.click('#continueItems');await page.fill('#itemName','未保存输入');await page.click('[data-nav=home]');
+   page.once('dialog',d=>d.dismiss());await openRecord('F-OLD-001');await page.click('[data-nav=item]');assert.equal(await page.inputValue('#itemName'),'未保存输入');
+   await page.click('[data-nav=home]');page.once('dialog',d=>d.accept());await openRecord('F-OLD-001');
   });
   await check('场景草稿状态切换页面仍保留，保存物品不误清场景草稿',async()=>{
-   await page.click('[data-nav=home]');await page.click('[data-record-id="A-OLD-001"]');await page.click('#editGroup');
+   await page.click('[data-nav=home]');await openRecord('A-OLD-001');await page.click('#editGroup');
    await page.selectOption('#boxStatus','部分完成');await page.fill('#boxOperator','尚未保存的登记人');
    await page.click('[data-nav=home]');await page.click('[data-nav=box]');assert.equal(await page.inputValue('#boxStatus'),'部分完成');
    await page.click('[data-nav=item]');await page.waitForFunction(()=>document.querySelector('#itemId').textContent==='A-OLD-001-03');await page.fill('#itemName','新增物品');await page.click('[form=itemForm]');await page.waitForFunction(()=>!state.saving);
@@ -96,7 +105,7 @@ async function check(name,action){await action();checks.push(name);console.log('
    await page.click('[form=boxForm]');await page.waitForFunction(()=>!state.saving);assert.equal(await page.evaluate(()=>state.dirty),false);
   });
   await check('取消物品修改不写库',async()=>{
-   await page.click('[data-nav=home]');await page.click('[data-record-id="A-OLD-001"]');await page.click('[data-item-id="A-OLD-001-01"]');await page.locator('#itemForm').waitFor({state:'visible'});
+   await page.click('[data-nav=home]');await openRecord('A-OLD-001');await page.click('[data-item-id="A-OLD-001-01"]');await page.locator('#itemForm').waitFor({state:'visible'});
    await page.fill('#itemName','放弃这次修改');page.once('dialog',d=>d.accept());await page.click('#backToRecords');
    assert.equal(await page.evaluate(async()=>(await dbGet('items','A-OLD-001-01')).name),'已核对旧标本');
   });
@@ -114,7 +123,7 @@ async function check(name,action){await action();checks.push(name);console.log('
    for(const width of [320,390,430]){
     await page.setViewportSize({width,height:844});await page.click('[data-nav=home]');
     assert.equal(await page.evaluate(()=>document.querySelector('.content').scrollWidth>document.querySelector('.content').clientWidth),false);
-    await page.click('[data-record-id="A-OLD-001"]');await page.locator('#recordsId').waitFor({state:'visible'});assert.equal(await page.evaluate(()=>document.querySelector('.content').scrollWidth>document.querySelector('.content').clientWidth),false);
+    await openRecord('A-OLD-001');await page.locator('#recordsTitle').waitFor({state:'visible'});assert.equal(await page.evaluate(()=>document.querySelector('.content').scrollWidth>document.querySelector('.content').clientWidth),false);
     if(width===390)await page.screenshot({path:path.join(out,'records.png')});
    }
    await page.click('[data-nav=home]');await page.locator('#toast').waitFor({state:'hidden'});await page.screenshot({path:path.join(out,'home.png')});

@@ -18,6 +18,7 @@ public class MainActivity extends Activity {
     private static final String LOCAL = "https://appassets.androidplatform.net/assets/www/";
     private ValueCallback<Uri[]> uploadCallback;
     private WebView webView;
+    private AppUpdater updater;
     private Uri cameraUri;
     private File cameraFile, exportFile;
     private volatile boolean exporting;
@@ -81,6 +82,7 @@ public class MainActivity extends Activity {
             }
         });
         webView.addJavascriptInterface(new DownloadBridge(), "AndroidBridge");
+        updater = new AppUpdater(this, webView);
         webView.loadUrl(LOCAL + "index.html");
     }
 
@@ -111,63 +113,9 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void checkForUpdates(String address, boolean silent) {
-        new Thread(() -> {
-            try {
-                java.net.URL url = new java.net.URL(address);
-                if (!"https".equalsIgnoreCase(url.getProtocol())) throw new IOException("更新地址必须使用 HTTPS");
-                java.net.HttpURLConnection connection = null;
-                for (int redirects = 0; redirects < 6; redirects++) {
-                    connection = (java.net.HttpURLConnection) url.openConnection();
-                    connection.setConnectTimeout(10000); connection.setReadTimeout(15000);
-                    connection.setRequestProperty("User-Agent", "DiboInventory-Android");
-                    connection.setInstanceFollowRedirects(false);
-                    int status = connection.getResponseCode();
-                    if (status >= 300 && status < 400) {
-                        String next = connection.getHeaderField("Location"); connection.disconnect();
-                        if (next == null) throw new IOException("更新地址跳转无效");
-                        url = new java.net.URL(url, next);
-                        if (!"https".equalsIgnoreCase(url.getProtocol())) throw new IOException("拒绝不安全的更新跳转");
-                        if (redirects == 5) throw new IOException("更新地址跳转次数过多");
-                    } else break;
-                }
-                String body;
-                try {
-                    if (connection.getResponseCode() != 200) throw new IOException("版本服务器返回 " + connection.getResponseCode());
-                    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                    try (InputStream in = connection.getInputStream()) {
-                        byte[] buffer = new byte[4096]; int count;
-                        while ((count = in.read(buffer)) != -1) {
-                            bytes.write(buffer, 0, count);
-                            if (bytes.size() > 65536) throw new IOException("版本文件过大");
-                        }
-                    }
-                    body = bytes.toString("UTF-8");
-                } finally { connection.disconnect(); }
-                org.json.JSONObject manifest = new org.json.JSONObject(body);
-                int installed = getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
-                if (!getPackageName().equals(manifest.getString("applicationId"))) throw new IOException("版本文件与当前应用不匹配");
-                int available = manifest.getInt("versionCode");
-                if (available <= installed) { if (!silent) message("已是当前发布的最新版本"); return; }
-                Uri apk = Uri.parse(manifest.getString("apkUrl"));
-                if (!"https".equals(apk.getScheme()) || apk.getHost() == null) throw new IOException("APK 下载地址必须使用 HTTPS");
-                String name = manifest.getString("versionName");
-                String notes = manifest.optString("notes", "更新后保留本机记录。");
-                runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
-                    .setTitle("发现新版本 " + name)
-                    .setMessage(notes + "\n\n下载来源：" + apk.getHost() + "\n下载后确认安装，请勿先卸载旧版。")
-                    .setNegativeButton("稍后", null)
-                    .setPositiveButton("下载新版", (dialog, which) -> {
-                        try { startActivity(new Intent(Intent.ACTION_VIEW, apk)); }
-                        catch (Exception error) { message("请使用手机浏览器打开下载地址"); }
-                    }).show());
-            } catch (Exception error) { if (!silent) message("检查更新失败：" + error.getMessage()); }
-        }).start();
-    }
-
     public class DownloadBridge {
         @JavascriptInterface public void checkUpdates(String address, boolean silent) {
-            checkForUpdates(address, silent);
+            updater.check(address, silent);
         }
 
         @JavascriptInterface public synchronized void saveBase64(String fileName, String base64, String mimeType) {
@@ -184,6 +132,9 @@ public class MainActivity extends Activity {
             } catch (Exception error) { exporting = false; message("导出失败：" + error.getMessage()); }
         }
     }
+
+    @Override protected void onResume() { super.onResume(); if (updater != null) updater.resume(); }
+    @Override protected void onDestroy() { if (updater != null) updater.close(); super.onDestroy(); }
 
     @Override public void onBackPressed() {
         webView.evaluateJavascript("document.querySelector('[data-screen=home]').classList.contains('active')", value -> {

@@ -7,7 +7,7 @@
 [下载最新 APK](https://github.com/jy1164039155-a11y/dibo-inventory/releases/latest/download/dibo-inventory.apk)
 
 应用内含全部页面，无需运行电脑服务器。清查记录和附件保存在手机本地。
-选择场景，建立箱级记录，再逐件登记、拍照，完成后导出 ZIP 交接包。
+选择场景，建立箱、展厅或楼层记录，再逐件登记、拍照，完成后导出 ZIP 交接包。
 包名：cn.hunanmuseum.inventory。
 
 ## 当前能力
@@ -22,7 +22,7 @@
 - 扫描仪接入独立入口，可保存待选型号和连接方式，当前状态为“待适配”。
 - 珠宝重量校验，设备数量和账面价值登记；箱目录单独导出。
 - CSV 与含照片的 Excel 兼容 HTML 表（.xls）导出。
-- 启动检查新版，设置中也可手动检查；用户确认下载并覆盖安装。
+- 启动检查新版，设置中点“应用内更新”；在应用内下载并显示进度，可取消下载，校验完成后打开系统安装界面。
 
 ## 更新
 
@@ -33,15 +33,19 @@ https://github.com/jy1164039155-a11y/dibo-inventory/releases/latest/download/ver
 应用关闭后的系统通知尚未接入；这里实现的是启动时或手动检查更新。
 手机需要能够访问 GitHub 及 Release 附件域名；离线状态可继续清查。
 
+1.0.6 起下载直接在 App 内完成，不再打开浏览器。首次使用时按提示允许本应用安装更新，返回后继续；安装需要用户在系统界面确认。下载使用 HTTPS，校验 SHA-256、包名、版本号及发布签名；未保存登记时不能开始更新。取消或中断下载后需重新下载，完整且校验通过的包可重用。
+
+1.0.5 及更早版本仍使用旧更新流程：先下载并覆盖安装一次 1.0.6，后续即可使用应用内更新。安装权限说明见 [Android PackageManager](https://developer.android.com/reference/android/content/pm/PackageManager#canRequestPackageInstalls())。
+
 ## 构建
 
 依赖 JDK 17、Gradle 8.7、Android SDK 35。
 准备自己的 keystore.properties 和签名密钥（均在 .gitignore 中），执行：
 ```text
-gradle assembleRelease lintRelease -PappVersionName=1.0.5 -PappVersionCode=10005
+gradle assembleRelease lintRelease -PappVersionName=1.0.6 -PappVersionCode=10006
 ```
 
-网页源文件位于 app/src/main/assets/www，原生相机、文件选择和版本检查逻辑位于 MainActivity.java。
+网页源文件位于 app/src/main/assets/www，原生相机、文件选择和桥逻辑位于 MainActivity.java，下载与安装更新位于 AppUpdater.java，下载校验位于 UpdateFiles.java。沿用 AndroidX 和系统 API，无新增运行依赖。
 
 ### 自动发布
 
@@ -49,7 +53,7 @@ gradle assembleRelease lintRelease -PappVersionName=1.0.5 -PappVersionCode=10005
 - ANDROID_KEYSTORE_BASE64：用于本应用的签名密钥文件的 Base64 编码。
 - ANDROID_KEY_PASSWORD：对应签名密码，alias 固定为 dibo-release。
 
-提交代码后推送未使用的新版本标签，会自动执行扫描解析测试、构建、签名并发布 APK、version.json 和 SHA256SUMS.txt。推送前完成下列浏览器及导出回归检查。
+提交代码后推送未使用的新版本标签，会自动执行扫描解析和更新下载校验测试、构建、签名并发布 APK、version.json 和 SHA256SUMS.txt。推送前完成下列浏览器及导出回归检查。
 标签格式必须为 v主.次.修订，次和修订小于 100。versionCode = 主×10000 + 次×100 + 修订。
 后续版本必须使用相同签名密钥；发布新密钥签名的包无法直接覆盖已安装版本。
 公开仓库仅包含应用源码，现场记录和私人签名材料不纳入版本控制。
@@ -73,6 +77,8 @@ gradle assembleRelease lintRelease -PappVersionName=1.0.5 -PappVersionCode=10005
 
 ```text
 node --test tests/scanner-format.test.cjs
+javac -encoding UTF-8 -d build/update-tests app/src/main/java/cn/hunanmuseum/inventory/UpdateFiles.java tests/UpdateFilesTest.java
+java -cp build/update-tests cn.hunanmuseum.inventory.UpdateFilesTest
 npm install --no-save playwright
 node tests/app-regression.cjs
 python tests/check-export.py apk-build/verification/full/all-functions.zip
@@ -82,16 +88,18 @@ python tests/check-records-export.py
 
 浏览器测试默认使用 Windows 上的 Chrome，可通过 CHROME_PATH 指定可执行文件，PLAYWRIGHT_MODULE 指定 Playwright 模块路径。测试会创建隔离的浏览器上下文和合成数据，不访问现场清查数据。Android 桥调用使用替身验证参数；不代替真机相机、文件选择器和覆盖安装测试。
 
-1.0.4 验证：26 项扫描解析测试、25 组浏览器流程检查通过，导出包内容核验通过。后续新增功能应扩充相应回归测试。
+1.0.6 验证：26 项扫描解析、14 项更新下载校验、25 组原有浏览器流程和 14 组记录流程检查通过，两份导出包内容核验通过。原生权限与安装流程需在实际安卓设备验收，详见验证记录。
 
 ### 1.0.5 升级与旧记录
 
 保持 applicationId、签名、WebView 本地来源、IndexedDB 名称与版本不变。新字段 `hallName`、`floorName`、`updatedAt` 为可选字段，旧记录可直接读取，不需要重建数据库。旧展柜或设备记录仍保留原位置，首页显示“展厅待补全”或“楼层待补全”，进入“修改登记信息”后填写真实名称。
 
-首页 → 本机记录 → 选择箱 / 展厅 / 楼层位置 → 查看物品；点物品进入修改，或点“继续登记物品”追加。底部第二项统一为“场景登记”，页面标题随场景切换。
+首页 → 本机记录 → 切换箱子 / 展厅 / 楼层 → 打开记录查看物品；点物品进入修改，或点“继续登记”追加。底部第二项统一为“场景登记”，页面标题随场景切换。
 
 新增 `场景记录目录.csv`，清查 CSV 和兼容表包含场景关联及展厅、楼层信息；`箱目录.csv` 和清查 CSV 原有列保留兼容，其中旧“箱号”列作为各场景关联编号。升级前导出备份，使用新 APK 覆盖安装。
 
 ## 界面文案
 
 参考 [GitHub Primer Content](https://primer-docs-preview.github.com/product/getting-started/foundations/content/) 的清晰、简洁、统一用词原则，删除重复副标题和卡片说明，按钮直接描述动作。技术说明收进设置中的“使用帮助”，保留单位、导出内容、操作结果和错误提示。设计系统源码见 [primer/design](https://github.com/primer/design)。
+
+1.0.6 首页按箱子、展厅、楼层切换列表；卡片保留名称、位置和物品数量。记录页以“继续登记”“修改信息”为主操作，编号、登记人、时间、照片收进“登记详情”；扫描信息和导出文件清单默认折叠。展厅和楼层表单隐藏自动生成的关联编号，仓库保留箱号。

@@ -25,6 +25,11 @@ jobs:
           node-version: '22'
       - name: Scan format regression
         run: node --test tests/scanner-format.test.cjs
+      - name: Update transfer regression
+        run: |
+          mkdir -p /tmp/dibo-update-tests
+          javac -encoding UTF-8 -d /tmp/dibo-update-tests app/src/main/java/cn/hunanmuseum/inventory/UpdateFiles.java tests/UpdateFilesTest.java
+          java -cp /tmp/dibo-update-tests cn.hunanmuseum.inventory.UpdateFilesTest
       - name: Restore signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

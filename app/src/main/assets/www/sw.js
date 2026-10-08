@@ -1,4 +1,4 @@
-const CACHE = 'museum-inventory-app-v1.0.5';
+const CACHE = 'museum-inventory-app-v1.0.6';
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './records.js', './scanner-format.js', './manifest.webmanifest'];
 self.addEventListener('install', (event) => event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS))));
 self.addEventListener('activate', (event) => event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))));
